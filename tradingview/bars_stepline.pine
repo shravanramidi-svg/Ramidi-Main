@@ -1,0 +1,45 @@
+//@version=6
+// Bars + Step Line — OHLC bars and a step line together in one frame.
+// Paste into TradingView Pine Editor → Save → Add to chart.
+indicator("Bars + Step Line", shorttitle = "Bars+Step", overlay = true)
+
+// ── Bars ──────────────────────────────────────────────
+showBars = input.bool(true, "Show OHLC bars", group = "Bars")
+upCol    = input.color(color.teal, "Up colour", group = "Bars")
+dnCol    = input.color(color.red, "Down colour", group = "Bars")
+
+// ── Step line ─────────────────────────────────────────
+showStep  = input.bool(true, "Show step line", group = "Step Line")
+tf        = input.timeframe("", "Timeframe (blank = chart)", group = "Step Line")
+srcType   = input.string("Close", "Source", options = ["Close", "Open", "High", "Low", "HL2", "HLC3", "OHLC4"], group = "Step Line")
+trendCol  = input.bool(true, "Colour by direction (up / down)", group = "Step Line")
+stepCol   = input.color(color.orange, "Fixed colour", group = "Step Line")
+stepWidth = input.int(2, "Width", minval = 1, maxval = 5, group = "Step Line")
+
+getSrc() =>
+    switch srcType
+        "Open"  => open
+        "High"  => high
+        "Low"   => low
+        "HL2"   => hl2
+        "HLC3"  => hlc3
+        "OHLC4" => ohlc4
+        => close
+
+step = request.security(syminfo.tickerid, tf, getSrc())
+
+// Step line colour: green when it steps up, red when it steps down
+var color lineCol = stepCol
+if trendCol
+    lineCol := step > step[1] ? upCol : step < step[1] ? dnCol : lineCol
+else
+    lineCol := stepCol
+
+// ── Draw ──────────────────────────────────────────────
+barCol = close >= open ? upCol : dnCol
+plotbar(showBars ? open : na, showBars ? high : na, showBars ? low : na, showBars ? close : na, "OHLC Bars", barCol)
+plot(showStep ? step : na, "Step Line", lineCol, stepWidth, plot.style_stepline)
+
+// ── Alerts ────────────────────────────────────────────
+alertcondition(ta.crossover(close, step), "Price crosses ABOVE step line", "{{ticker}} crossed ABOVE step line at {{close}}")
+alertcondition(ta.crossunder(close, step), "Price crosses BELOW step line", "{{ticker}} crossed BELOW step line at {{close}}")
